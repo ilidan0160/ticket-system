@@ -3,26 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../../app/store';
 import { createTicket } from './ticketSlice';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CircularProgress,
-  Container,
-  Divider,
-  Grid,
-  MenuItem,
-  TextField,
-  Typography,
-  FormControl,
-  InputLabel,
-  Select,
-  Paper,
-  Alert,
-  Snackbar,
-} from '@mui/material';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
+import CircularProgress from '@mui/material/CircularProgress';
+import Container from '@mui/material/Container';
+import Grid from '@mui/material/Grid';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select, { SelectChangeEvent } from '@mui/material/Select';
+import Alert from '@mui/material/Alert';
+import Snackbar from '@mui/material/Snackbar';
 import { ArrowBack, Save } from '@mui/icons-material';
 
 const priorityOptions = [
@@ -42,13 +37,35 @@ const categoryOptions = [
 const CreateTicketForm: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { loading, error } = useSelector((state: RootState) => state.tickets);
+  const { loading } = useSelector((state: RootState) => state.tickets);
+  const user = useSelector((state: RootState) => state.auth.user);
   
-  const [formData, setFormData] = useState({
+  interface FormData {
+    title: string;
+    description: string;
+    priority: 'baja' | 'media' | 'alta' | 'critica' | '';
+    status: 'abierto' | 'en_progreso' | 'en_espera' | 'resuelto' | 'cerrado';
+    categoryId: string;
+    categoria: string;
+    asunto: string;
+    descripcion: string;
+    prioridad: string;
+    estado: string;
+    assignedToId?: string;
+    asignadoAId?: string;
+  }
+
+  const [formData, setFormData] = useState<FormData>({
+    title: '',
+    description: '',
+    priority: '',
+    status: 'abierto',
+    categoryId: '',
+    categoria: '',
     asunto: '',
     descripcion: '',
-    prioridad: 'media',
-    categoria: 'soporte_tecnico',
+    prioridad: '',
+    estado: 'abierto',
   });
   
   const [errors, setErrors] = useState<{
@@ -79,12 +96,35 @@ const CreateTicketForm: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleChange = (e: React.ChangeEvent<{ name?: string; value: unknown }>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
     const { name, value } = e.target;
     if (name) {
       setFormData(prev => ({
         ...prev,
-        [name]: value,
+        [name]: value
+      }));
+      
+      // Clear error when user types
+      if (errors[name as keyof typeof errors]) {
+        setErrors(prev => ({
+          ...prev,
+          [name]: undefined,
+        }));
+      }
+    }
+  };
+  
+  const handleSelectChange = (e: SelectChangeEvent<string>) => {
+    const { name, value } = e.target;
+    if (name) {
+      // Convert to number for numeric fields
+      const processedValue = (name === 'asignadoAId' && value !== '') 
+        ? Number(value) 
+        : value;
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: processedValue
       }));
       
       // Clear error when user types
@@ -103,7 +143,22 @@ const CreateTicketForm: React.FC = () => {
     if (!validate()) return;
     
     try {
-      const resultAction = await dispatch(createTicket(formData));
+      if (!user?.id) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      // Map form data to API expected format
+      const ticketData = {
+        asunto: formData.asunto,
+        descripcion: formData.descripcion,
+        prioridad: formData.prioridad as 'baja' | 'media' | 'alta' | 'critica',
+        estado: formData.estado as 'abierto' | 'en_progreso' | 'en_espera' | 'resuelto' | 'cerrado',
+        categoria: formData.categoria,
+        solicitanteId: Number(user.id),
+        asignadoAId: formData.asignadoAId ? Number(formData.asignadoAId) : null,
+      };
+      
+      const resultAction = await dispatch(createTicket(ticketData));
       
       if (createTicket.fulfilled.match(resultAction)) {
         setSnackbarMessage('Ticket creado exitosamente');
@@ -155,7 +210,7 @@ const CreateTicketForm: React.FC = () => {
                   name="asunto"
                   label="Asunto"
                   value={formData.asunto}
-                  onChange={handleChange}
+                  onChange={handleInputChange}
                   error={!!errors.asunto}
                   helperText={errors.asunto || 'Un título claro y descriptivo'}
                   disabled={loading}
@@ -171,7 +226,7 @@ const CreateTicketForm: React.FC = () => {
                     name="prioridad"
                     value={formData.prioridad}
                     label="Prioridad"
-                    onChange={handleChange}
+                    onChange={handleSelectChange}
                     disabled={loading}
                   >
                     {priorityOptions.map((option) => (
@@ -192,7 +247,7 @@ const CreateTicketForm: React.FC = () => {
                     name="categoria"
                     value={formData.categoria}
                     label="Categoría"
-                    onChange={handleChange}
+                    onChange={handleSelectChange}
                     disabled={loading}
                   >
                     {categoryOptions.map((option) => (
@@ -214,7 +269,7 @@ const CreateTicketForm: React.FC = () => {
                   name="descripcion"
                   label="Descripción detallada"
                   value={formData.descripcion}
-                  onChange={handleChange}
+                  onChange={handleInputChange}
                   error={!!errors.descripcion}
                   helperText={
                     errors.descripcion || 

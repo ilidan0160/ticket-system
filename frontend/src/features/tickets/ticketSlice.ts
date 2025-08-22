@@ -1,7 +1,35 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { io } from 'socket.io-client';
 import { RootState } from '../../app/store';
 import api from '../../services/api';
+
+// Use a more flexible type for socket to avoid immutability issues
+type SocketType = any; // Using any to avoid Socket type immutability issues with Redux
+
+// Message interface for ticket messages
+interface Message {
+  id: number;
+  contenido: string;
+  esInterno: boolean;
+  ticketId: number;
+  usuarioId: number;
+  createdAt: string;
+  updatedAt: string;
+  usuario?: User;
+}
+
+// Types
+type Filters = {
+  status: string;
+  priority: string;
+  categoria: string;
+  search: string;
+};
+
+type FetchTicketsParams = {
+  page?: number;
+  limit?: number;
+  filters?: Partial<Filters>;
+};
 
 // Interfaces
 interface User {
@@ -23,7 +51,7 @@ interface Message {
   user?: User;
 }
 
-interface Ticket {
+export interface Ticket {
   id: number;
   asunto: string;
   descripcion: string;
@@ -45,16 +73,11 @@ interface TicketState {
   loading: boolean;
   error: string | null;
   updating: boolean;
-  socket: any | null;
+  socket: SocketType;
   total: number;
   totalPages: number;
   currentPage: number;
-  filters: {
-    status: string;
-    priority: string;
-    categoria: string;
-    search: string;
-  };
+  filters: Filters;
   stats: {
     total: number;
     abierto: number;
@@ -72,9 +95,9 @@ const initialState: TicketState = {
   loading: false,
   error: null,
   updating: false,
-  socket: null,
+  socket: null as unknown as SocketType,
   total: 0,
-  totalPages: 1,
+  totalPages: 0,
   currentPage: 1,
   filters: {
     status: '',
@@ -93,118 +116,177 @@ const initialState: TicketState = {
 };
 
 // Async thunks
-export const fetchTickets = createAsyncThunk(
-  'tickets/fetchTickets',
-  async (params: { page?: number; limit?: number; filters?: Partial<TicketState['filters']> }, { getState, rejectWithValue }) => {
+export const fetchTickets = createAsyncThunk<
+  {
+    tickets: Ticket[];
+    total: number;
+    totalPages: number;
+    currentPage: number;
+  },
+  FetchTicketsParams,
+  { state: RootState }
+>(
+  'tickets/fetchAll',
+  async ({ page = 1, limit = 10, filters = {} }, { getState, rejectWithValue }) => {
     try {
-      const { page = 1, limit = 10, filters = {} } = params;
-      const state = getState() as RootState;
+      const state = getState();
+      const currentFilters = state.tickets.filters;
+      const appliedFilters = { ...currentFilters, ...filters };
       
-      const response = await api.get('/tickets', {
+      // Remove empty filters
+      const cleanFilters = Object.fromEntries(
+        Object.entries(appliedFilters).filter(([_, v]) => v !== '')
+      );
+      
+      const response = await api.get<{
+        tickets: Ticket[];
+        total: number;
+        totalPages: number;
+      }>('/tickets', {
         params: {
           page,
           limit,
-          ...state.tickets.filters,
-          ...filters,
+          ...cleanFilters,
         },
       });
       
       return {
-        tickets: response.data.data,
+        tickets: response.data.tickets,
         total: response.data.total,
         totalPages: response.data.totalPages,
-        currentPage: response.data.currentPage,
+        currentPage: page,
       };
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Error al cargar los tickets');
+      return rejectWithValue(error.response?.data?.message || 'Error fetching tickets') as any;
     }
   }
 );
 
-export const fetchTicketById = createAsyncThunk(
+export const fetchTicketById = createAsyncThunk<Ticket, number, { state: RootState }>(
   'tickets/fetchTicketById',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
-      const response = await api.get(`/tickets/${id}`);
+      const response = await api.get<Ticket>(`/tickets/${id}`);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Error al cargar el ticket');
+      return rejectWithValue(error.response?.data?.message || 'Error fetching ticket') as any;
     }
   }
 );
 
-export const createTicket = createAsyncThunk(
+interface CreateTicketData {
+  asunto: string;
+  descripcion: string;
+  prioridad: string;
+  categoria: string;
+  estado?: string; // Made optional to match form data
+  solicitanteId: number;
+  asignadoAId?: number | null;
+}
+
+export const createTicket = createAsyncThunk<Ticket, CreateTicketData, { state: RootState }>(
   'tickets/createTicket',
-  async (ticketData: Omit<Ticket, 'id' | 'createdAt' | 'updatedAt' | 'solicitante' | 'asignadoA'>, { rejectWithValue }) => {
+  async (ticketData, { rejectWithValue }) => {
     try {
-      const response = await api.post('/tickets', ticketData);
-      return response.data;
+      const response = await api.post<CreateTicketData>('/tickets', ticketData);
+      return response.data as Ticket;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Error al crear el ticket');
+      return rejectWithValue(error.response?.data?.message || 'Error creating ticket') as any;
     }
   }
 );
 
-export const updateTicket = createAsyncThunk(
+interface UpdateTicketData {
+  id: number;
+  asunto?: string;
+  descripcion?: string;
+  prioridad?: string;
+  estado?: string;
+  categoria?: string;
+  asignadoAId?: number | null;
+}
+
+export const updateTicket = createAsyncThunk<Ticket, UpdateTicketData, { state: RootState }>(
   'tickets/updateTicket',
-  async ({ id, ...updates }: { id: number } & Partial<Ticket>, { rejectWithValue }) => {
+  async ({ id, ...updates }, { rejectWithValue }) => {
     try {
-      const response = await api.put(`/tickets/${id}`, updates);
-      return response.data;
+      const response = await api.put<UpdateTicketData>(`/tickets/${id}`, updates);
+      return response.data as Ticket;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Error al actualizar el ticket');
+      return rejectWithValue(error.response?.data?.message || 'Error updating ticket') as any;
     }
   }
 );
 
-export const deleteTicket = createAsyncThunk(
+export const deleteTicket = createAsyncThunk<number, number>(
   'tickets/deleteTicket',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       await api.delete(`/tickets/${id}`);
       return id;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Error al eliminar el ticket');
+      return rejectWithValue(error.response?.data?.message || 'Error deleting ticket');
     }
   }
 );
 
-export const addMessage = createAsyncThunk(
+interface AddMessagePayload {
+  ticketId: number;
+  message: string;
+  isInternal: boolean;
+}
+
+export const addMessage = createAsyncThunk<Message, AddMessagePayload, { state: RootState }>(
   'tickets/addMessage',
-  async ({ ticketId, message, isInternal }: { ticketId: number; message: string; isInternal: boolean }, { getState, rejectWithValue }) => {
+  async ({ ticketId, message, isInternal }, { getState, rejectWithValue }) => {
     try {
-      const state = getState() as RootState;
+      const state = getState();
       const user = state.auth.user;
       
-      const response = await api.post('/chat/message', {
+      const response = await api.post<Message>('/chat/message', {
         ticketId,
         message,
         isInternal,
       });
       
       // Emit socket event
-      if (state.tickets.socket) {
-        state.tickets.socket.emit('chat:new_message', {
+      const socket = state.tickets.socket;
+      if (socket) {
+        const messageData = {
           ...response.data,
-          user: { id: user?.id, username: user?.username, email: user?.email },
-        });
+          user: { 
+            id: user?.id || 0, 
+            username: user?.username || 'System', 
+            email: user?.email || '' 
+          },
+        };
+        socket.emit('chat:new_message', messageData);
       }
       
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Error al enviar el mensaje');
+      return rejectWithValue(error.response?.data?.message || 'Error sending message') as any;
     }
   }
 );
 
-export const fetchTicketStats = createAsyncThunk(
+export const fetchTicketStats = createAsyncThunk<
+  {
+    total: number;
+    abierto: number;
+    en_progreso: number;
+    pendiente: number;
+    resuelto: number;
+    cerrado: number;
+  }
+>(
   'tickets/fetchStats',
   async (_, { rejectWithValue }) => {
     try {
       const response = await api.get('/tickets/stats');
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Error al cargar las estadísticas');
+      return rejectWithValue(error.response?.data?.message || 'Error fetching ticket stats');
     }
   }
 );
@@ -214,15 +296,22 @@ const ticketSlice = createSlice({
   name: 'tickets',
   initialState,
   reducers: {
-    setSocket: (state, action: PayloadAction<Socket | null>) => {
-      // Disconnect existing socket if any
-      if (state.socket) {
-        state.socket.disconnect();
-      }
+    setSocket: (state, action: PayloadAction<SocketType>) => {
       state.socket = action.payload;
     },
-    setFilters: (state, action: PayloadAction<Partial<TicketState['filters']>>) => {
-      state.filters = { ...state.filters, ...action.payload };
+    setFilters: (state, action: PayloadAction<Partial<Filters>>) => {
+      state.filters = {
+        ...state.filters,
+        ...action.payload,
+      };
+    },
+    clearFilters: (state) => {
+      state.filters = {
+        status: '',
+        priority: '',
+        categoria: '',
+        search: '',
+      };
     },
     resetFilters: (state) => {
       state.filters = initialState.filters;
@@ -239,6 +328,7 @@ const ticketSlice = createSlice({
       state.currentTicket = null;
     },
     resetTicketState: () => initialState,
+    updateCurrentTicket: (state, action: PayloadAction<Ticket>) => {
       if (state.currentTicket?.id === action.payload.id) state.currentTicket = action.payload;
     },
     removeTicket: (state, action: PayloadAction<number>) => {
@@ -246,44 +336,11 @@ const ticketSlice = createSlice({
       if (state.currentTicket?.id === action.payload) state.currentTicket = null;
       state.total = Math.max(0, state.total - 1);
     },
-    clearCurrentTicket: (state) => {
-      state.currentTicket = null;
-    },
-    resetTicketState: () => initialState,
   },
   extraReducers: (builder) => {
+    // Chain all cases in a single builder chain to avoid duplicate builder declarations
     builder
-      .addCase(fetchTickets.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchTickets.fulfilled, (state, action) => {
-        state.loading = false;
-        state.tickets = action.payload.tickets;
-        state.total = action.payload.total;
-        state.totalPages = action.payload.totalPages;
-        state.currentPage = action.payload.currentPage;
-      })
-      .addCase(fetchTickets.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch tickets';
-      })
-      .addCase(fetchTicketById.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchTicketById.fulfilled, (state, action) => {
-        state.loading = false;
-        state.currentTicket = action.payload;
-      })
-      .addCase(fetchTicketById.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch ticket';
-      });
-  },
-  extraReducers: (builder) => {
-    // Fetch Tickets
-    builder
+      // Fetch Tickets
       .addCase(fetchTickets.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -298,10 +355,8 @@ const ticketSlice = createSlice({
       .addCase(fetchTickets.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
-      });
-
-    // Fetch Ticket By ID
-    builder
+      })
+      // Fetch Ticket By ID
       .addCase(fetchTicketById.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -313,10 +368,8 @@ const ticketSlice = createSlice({
       .addCase(fetchTicketById.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
-      });
-
-    // Create Ticket
-    builder
+      })
+      // Create Ticket
       .addCase(createTicket.pending, (state) => {
         state.updating = true;
         state.error = null;
@@ -329,10 +382,8 @@ const ticketSlice = createSlice({
       .addCase(createTicket.rejected, (state, action) => {
         state.updating = false;
         state.error = action.payload as string;
-      });
-
-    // Update Ticket
-    builder
+      })
+      // Update Ticket
       .addCase(updateTicket.pending, (state) => {
         state.updating = true;
         state.error = null;
@@ -350,10 +401,8 @@ const ticketSlice = createSlice({
       .addCase(updateTicket.rejected, (state, action) => {
         state.updating = false;
         state.error = action.payload as string;
-      });
-
-    // Delete Ticket
-    builder
+      })
+      // Delete Ticket
       .addCase(deleteTicket.pending, (state) => {
         state.updating = true;
         state.error = null;
@@ -369,13 +418,10 @@ const ticketSlice = createSlice({
       .addCase(deleteTicket.rejected, (state, action) => {
         state.updating = false;
         state.error = action.payload as string;
-      });
-
-    // Add Message
-    builder
+      })
+      // Add Message
       .addCase(addMessage.pending, (state) => {
         state.updating = true;
-        state.error = null;
       })
       .addCase(addMessage.fulfilled, (state, action) => {
         state.updating = false;
@@ -389,9 +435,8 @@ const ticketSlice = createSlice({
       .addCase(addMessage.rejected, (state, action) => {
         state.updating = false;
         state.error = action.payload as string;
-      });
-
-    // Fetch Ticket Stats
+      })
+      // Fetch Ticket Stats
       .addCase(fetchTicketStats.fulfilled, (state, action) => {
         state.stats = action.payload;
       });

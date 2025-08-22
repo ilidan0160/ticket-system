@@ -1,4 +1,4 @@
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosError, AxiosResponse } from 'axios';
 import { store } from '../app/store';
 
 // Create axios instance
@@ -11,15 +11,15 @@ const api = axios.create({
 
 // Add a request interceptor to include the auth token
 api.interceptors.request.use(
-  (config: AxiosRequestConfig) => {
+  (config) => {
     const token = store.getState().auth.token;
     if (token) {
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
-    return config;
+    return config as any; // Type assertion to handle Axios type issues
   },
-  (error: AxiosError) => {
+  (error) => {
     return Promise.reject(error);
   }
 );

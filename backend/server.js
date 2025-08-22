@@ -31,6 +31,23 @@ app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/chat', chatRoutes);
 
+// Root route
+app.get('/', (req, res) => {
+  res.send(`
+    <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
+      <h1>Bienvenido al Sistema de Tickets</h1>
+      <p>El servidor está en funcionamiento correctamente.</p>
+      <p>Endpoints disponibles:</p>
+      <ul style="list-style: none; padding: 0;">
+        <li><strong>API:</strong> <a href="/api">/api</a></li>
+        <li><strong>Auth:</strong> <a href="/api/auth">/api/auth</a></li>
+        <li><strong>Tickets:</strong> <a href="/api/tickets">/api/tickets</a></li>
+        <li><strong>Health Check:</strong> <a href="/health">/health</a></li>
+      </ul>
+    </div>
+  `);
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });

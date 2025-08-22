@@ -1,0 +1,10 @@
+2025-08-21 13:25:54 [[31merror[39m]: SequelizeConnectionRefusedError: connect ECONNREFUSED 127.0.0.1:5432
+    at Client._connectionCallback (/home/anthony/Escritorio/ticket-system/backend/node_modules/sequelize/lib/dialects/postgres/connection-manager.js:133:24)
+    at Client._handleErrorWhileConnecting (/home/anthony/Escritorio/ticket-system/backend/node_modules/pg/lib/client.js:336:19)
+    at Client._handleErrorEvent (/home/anthony/Escritorio/ticket-system/backend/node_modules/pg/lib/client.js:346:19)
+    at Connection.emit (node:events:518:28)
+    at Socket.reportStreamError (/home/anthony/Escritorio/ticket-system/backend/node_modules/pg/lib/connection.js:57:12)
+    at Socket.emit (node:events:518:28)
+    at emitErrorNT (node:internal/streams/destroy:169:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:128:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)

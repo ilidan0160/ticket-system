@@ -1,8 +1,9 @@
 import { io, Socket } from 'socket.io-client';
-import { Middleware, Dispatch, AnyAction } from '@reduxjs/toolkit';
+import { Middleware, AnyAction } from '@reduxjs/toolkit';
 import { RootState } from '../app/store';
 import { addMessage, setTyping } from '../features/chat/chatSlice';
-import { addTicket, updateTicketSuccess, removeTicket } from '../features/tickets/ticketSlice';
+import { setSocket as setTicketSocket } from '../features/tickets/ticketSlice';
+import { Ticket, Message as TicketMessage } from '../features/tickets/types';
 
 const socketMiddleware = (): Middleware<{}, RootState> => {
   let socket: Socket | null = null;
@@ -30,38 +31,53 @@ const socketMiddleware = (): Middleware<{}, RootState> => {
       });
 
       // Ticket events
-      socket.on('ticket:created', (ticket) => {
-        dispatch(addTicket(ticket));
+      socket.on('ticket:created', (ticket: Ticket) => {
+        dispatch({ type: 'tickets/updateCurrentTicket', payload: ticket });
       });
 
-      socket.on('ticket:updated', (ticket) => {
-        dispatch(updateTicketSuccess(ticket));
+      socket.on('ticket:updated', (ticket: Ticket) => {
+        dispatch({ type: 'tickets/updateCurrentTicket', payload: ticket });
       });
 
-      socket.on('ticket:deleted', ({ id }) => {
-        dispatch(removeTicket(id));
+      socket.on('ticket:deleted', ({ id }: { id: number }) => {
+        dispatch({ type: 'tickets/removeTicket', payload: id });
       });
 
       // Chat events
-      socket.on('chat:new_message', (message) => {
+      socket.on('chat:new_message', (message: TicketMessage) => {
+        dispatch({ type: 'tickets/addMessageLocally', payload: message });
+        // Also dispatch to chat slice if needed
         dispatch(addMessage(message));
       });
 
-      socket.on('chat:message_updated', (message) => {
+      socket.on('chat:message_updated', (updatedMessage: TicketMessage) => {
         // Handle message update if needed
+        console.log('Message updated:', updatedMessage);
       });
 
-      socket.on('chat:message_deleted', ({ id }) => {
+      socket.on('chat:message_deleted', ({ id }: { id: string }) => {
         // Handle message deletion if needed
+        console.log('Message deleted:', id);
       });
 
-      socket.on('chat:typing', ({ userId, ticketId, isTyping }) => {
+      socket.on('chat:typing', ({ userId, isTyping }: { userId: string; isTyping: boolean }) => {
         dispatch(setTyping({ userId, isTyping }));
       });
 
       // Store the socket instance in the Redux store
-      dispatch({ type: 'tickets/setSocket', payload: socket });
-      dispatch({ type: 'chat/setSocket', payload: socket });
+      dispatch(setTicketSocket(socket));
+      // Dispatch to chat slice if it has a setSocket action
+      import('../features/chat/chatSlice')
+        .then(chatModule => {
+          // Use type assertion to avoid TypeScript error
+          const chatSlice = chatModule as { setSocket?: (socket: Socket | null) => any };
+          if (chatSlice.setSocket) {
+            chatSlice.setSocket(socket);
+          }
+        })
+        .catch(error => {
+          console.warn('Chat slice not found or does not have setSocket action', error);
+        });
     }
 
     // Handle disconnection on logout
@@ -72,7 +88,7 @@ const socketMiddleware = (): Middleware<{}, RootState> => {
 
     // Handle chat actions
     if (type === 'chat/sendMessage/pending' && socket) {
-      const { ticketId, message } = payload.arg;
+      const { ticketId } = payload.arg;
       socket.emit('chat:typing', { ticketId, isTyping: false });
     }
 

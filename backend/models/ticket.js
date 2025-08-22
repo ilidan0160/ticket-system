@@ -80,6 +80,22 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     timestamps: true,
     tableName: 'tickets',
+    indexes: [
+      // Indexes for filtering by status and priority
+      { fields: ['estatus'] },
+      { fields: ['prioridad'] },
+      { fields: ['departamento'] },
+      { fields: ['user_id'] },
+      { fields: ['assigned_to'] },
+      { fields: ['fecha_cierre'] },
+      // Composite index for common query patterns
+      { fields: ['estatus', 'prioridad'] },
+      { fields: ['departamento', 'estatus'] },
+      // Index for date-based queries
+      { fields: ['createdAt'] },
+      // Full-text search index for description (if your database supports it)
+      // { type: 'FULLTEXT', fields: ['descripcion'] }
+    ],
     defaultScope: {
       attributes: { exclude: ['userId', 'assignedTo'] },
       include: [
