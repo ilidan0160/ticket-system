@@ -39,7 +39,7 @@ services:
       - REACT_APP_API_URL=${API_URL:-http://localhost:5000/api}
       - REACT_APP_SOCKET_URL=${SOCKET_URL:-http://localhost:5000}
     ports:
-      - "3000:80"
+      - "3005:80"
     depends_on:
       - backend
     restart: unless-stopped

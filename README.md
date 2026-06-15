@@ -36,7 +36,7 @@ La forma más sencilla de ejecutar la aplicación es utilizando Docker Compose. 
    docker-compose up --build
    ```
 4. Accede a la aplicación:
-   - Frontend: http://localhost:3000
+   - Frontend: http://localhost:3005
    - Backend API: http://localhost:5000
 
 ## 💻 Instalación Manual
