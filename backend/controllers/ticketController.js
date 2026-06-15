@@ -4,6 +4,7 @@ const { Ticket, ChatMessage, User } = require('../models');
 const logger = require('../utils/logger');
 const axios = require('axios');
 const statsHelper = require('../utils/statsHelper');
+const aiReportService = require('../services/aiReportService');
 
 // Obtener instancia de sequelize
 const sequelize = require('../config/database');
@@ -1025,5 +1026,25 @@ exports.getTicketStats = async (req, res) => {
       message: 'Error interno del servidor al generar estadísticas',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+};
+
+// @route   GET api/tickets/ai-report
+// @desc    Generate AI report of open tickets
+// @access  Private
+exports.generateAIReport = async (req, res) => {
+  try {
+    // Get open tickets
+    const tickets = await Ticket.findAll({
+      where: { estatus: { [Op.in]: ['abierto', 'en_progreso'] } },
+      limit: 20, // Send at most 20 for context size
+      order: [['createdAt', 'DESC']]
+    });
+
+    const report = await aiReportService.generateTicketsReport(tickets);
+    res.json({ success: true, data: report });
+  } catch (error) {
+    logger.error('Error in generateAIReport:', error);
+    res.status(500).json({ success: false, message: 'No se pudo generar el reporte IA' });
   }
 };

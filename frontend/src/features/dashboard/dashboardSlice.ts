@@ -107,7 +107,7 @@ const dashboardSlice = createSlice({
 });
 
 // Exportar acciones
-export const { } = dashboardSlice.actions;
+// export const { } = dashboardSlice.actions;
 
 // Exportar selectores
 export const selectDashboardData = (state: RootState) => state.dashboard.data;

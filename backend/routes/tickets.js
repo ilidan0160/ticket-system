@@ -14,6 +14,11 @@ router.get('/', auth(), ticketController.getTickets);
 // @access  Private
 router.get('/stats', auth(), ticketController.getTicketStats);
 
+// @route   GET api/tickets/ai-report
+// @desc    Generate AI report of open tickets
+// @access  Private (Admin/Technician)
+router.get('/ai-report', auth(['admin', 'tecnico']), ticketController.generateAIReport);
+
 // @route   GET api/tickets/:id
 // @desc    Get ticket by ID
 // @access  Private
