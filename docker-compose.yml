@@ -17,15 +17,10 @@ services:
   backend:
     build: ./backend
     container_name: ticket_backend
+    env_file:
+      - .env
     environment:
-      - PORT=5000
       - DB_HOST=db
-      - DB_PORT=5432
-      - DB_NAME=${DB_NAME:-ticket_system}
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - JWT_SECRET=${JWT_SECRET:-secret_key_123}
-      - JWT_EXPIRES_IN=30d
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
     ports:
       - "5000:5000"

@@ -48,8 +48,8 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
     },
     estatus: {
-      type: DataTypes.ENUM('Nuevo', 'En Progreso', 'Resuelto', 'Cerrado'),
-      defaultValue: 'Nuevo',
+      type: DataTypes.ENUM('abierto', 'en_progreso', 'pendiente', 'resuelto', 'cerrado'),
+      defaultValue: 'abierto',
       allowNull: false,
     },
     notasInternas: {
@@ -100,7 +100,7 @@ module.exports = (sequelize, DataTypes) => {
       attributes: { exclude: ['userId', 'assignedTo'] },
       include: [
         { association: 'user', attributes: ['id', 'username', 'email'] },
-        { association: 'assignedUser', attributes: ['id', 'username', 'email'] },
+        { association: 'assignedToUser', attributes: ['id', 'username', 'email'] },
       ],
     },
   });
@@ -114,7 +114,7 @@ module.exports = (sequelize, DataTypes) => {
     
     Ticket.belongsTo(models.User, {
       foreignKey: 'assignedTo',
-      as: 'assignedUser',
+      as: 'assignedToUser',
     });
     
     Ticket.hasMany(models.ChatMessage, {

@@ -77,7 +77,7 @@ router.put(
         .isIn(['Baja', 'Media', 'Alta', 'Urgente']),
       check('estatus', 'El estatus es inválido')
         .optional()
-        .isIn(['Nuevo', 'En Progreso', 'Resuelto', 'Cerrado']),
+        .isIn(['abierto', 'en_progreso', 'pendiente', 'resuelto', 'cerrado']),
     ],
   ],
   ticketController.updateTicket

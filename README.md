@@ -26,10 +26,10 @@ La forma más sencilla de ejecutar la aplicación es utilizando Docker Compose. 
    git clone https://github.com/ilidan0160/ticket-system.git
    cd ticket-system
    ```
-2. Configura las variables de entorno en el archivo `backend/.env`:
+2. Configura las variables de entorno en la raíz del proyecto (Docker usa este archivo):
    ```bash
-   cp backend/.env.example backend/.env
-   # Agrega tu GEMINI_API_KEY en backend/.env para habilitar los reportes de IA
+   cp backend/.env.example .env
+   # Edita el archivo .env en la raíz y agrega tu GEMINI_API_KEY
    ```
 3. Ejecuta Docker Compose:
    ```bash
