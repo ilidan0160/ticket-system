@@ -71,6 +71,18 @@ const startServer = async () => {
     if (process.env.NODE_ENV !== 'production') {
       await sequelize.sync({ alter: true });
       logger.info('Database synchronized');
+
+      // Auto-seed para despliegue sencillo
+      const { User } = require('./models');
+      const count = await User.count();
+      if (count === 0) {
+        await User.bulkCreate([
+          { username: 'admin', email: 'admin@example.com', password: 'admin123', role: 'admin', isActive: true },
+          { username: 'tecnico', email: 'tecnico@example.com', password: 'tecnico123', role: 'tecnico', isActive: true },
+          { username: 'usuario', email: 'usuario@example.com', password: 'usuario123', role: 'usuario', isActive: true }
+        ], { individualHooks: true }); // Important for password hashing
+        logger.info('¡Usuarios por defecto creados automáticamente!');
+      }
     }
 
     // Setup WebSocket
